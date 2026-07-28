@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles, RefreshCw, AlertCircle, FileText } from "lucide-react";
-import { sendChatMessageStream, Message, PdfUploadResult } from "../lib/api";
+import { Send, Bot, User, Sparkles, RefreshCw, AlertCircle, FileText, History, Clock, FileWarning, Plus } from "lucide-react";
+import { sendChatMessageStream, fetchSessionMessages, fetchUserSessions, Message, PdfUploadResult, ChatSessionInfo } from "../lib/api";
 import { PdfUploader } from "./PdfUploader";
 
 export function ChatInterface() {
@@ -10,7 +10,7 @@ export function ChatInterface() {
     {
       id: "welcome-msg",
       role: "assistant",
-      content: "Hello! Upload a PDF file to enable RAG-based context answering, or type any question to get started.",
+      content: "Welcome! Please upload a PDF document using the workspace panel on the left to start asking questions.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -18,6 +18,8 @@ export function ChatInterface() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activePdf, setActivePdf] = useState<PdfUploadResult | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [pastSessions, setPastSessions] = useState<ChatSessionInfo[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,20 +31,92 @@ export function ChatInterface() {
     scrollToBottom();
   }, [messages, isStreaming]);
 
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  const loadSessions = async () => {
+    try {
+      const sessions = await fetchUserSessions();
+      setPastSessions(sessions);
+    } catch (err) {
+      console.error("Could not load sessions:", err);
+    }
+  };
+
+  const loadSessionHistory = async (session: ChatSessionInfo) => {
+    try {
+      setError(null);
+      const history = await fetchSessionMessages(session.session_id);
+      
+      if (history && history.length > 0) {
+        setMessages(history);
+      } else {
+        setMessages([
+          {
+            id: "welcome-msg",
+            role: "assistant",
+            content: `Switched to chat session for **${session.filename}**. What would you like to ask about this document?`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      }
+
+      // Update Active Session & Document Active status
+      setActiveSessionId(session.session_id);
+      setActivePdf({
+        pdf_id: session.pdf_id,
+        session_id: session.session_id,
+        filename: session.filename,
+        file_path: "",
+        total_pages: 1,
+        total_characters: 0,
+        total_chunks: 0,
+        chunk_size: 1000,
+        chunk_overlap: 200,
+        vector_db: "FAISS",
+        indexed_vectors: 0,
+        preview_text: "",
+        chunks: [],
+        pages: [],
+      });
+    } catch (err: any) {
+      setError(err?.message || "Failed to load session history.");
+    }
+  };
+
   const handlePdfUploaded = (pdfData: PdfUploadResult | null) => {
     setActivePdf(pdfData);
-    if (pdfData) {
+    setError(null);
+    if (pdfData && pdfData.session_id) {
+      setActiveSessionId(pdfData.session_id);
       const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setMessages((prev) => [
         ...prev,
         {
           id: `system-pdf-${Date.now()}`,
           role: "assistant",
-          content: `📄 **PDF Attached & FAISS Vector Store Ready!**\n\n**File:** ${pdfData.filename}\n**Total Pages:** ${pdfData.total_pages}\n**FAISS Chunks:** ${pdfData.total_chunks}\n\n*All future questions will now query vector similarity search over this document.*`,
+          content: `📄 **Document Attached!**\n\n**File:** ${pdfData.filename}\n**Total Pages:** ${pdfData.total_pages}\n\nYou can now ask any question about this document.`,
           timestamp,
         },
       ]);
+      loadSessions();
     }
+  };
+
+  const handleNewChat = () => {
+    setActivePdf(null);
+    setActiveSessionId(null);
+    setError(null);
+    setInputMessage("");
+    setMessages([
+      {
+        id: "welcome-msg",
+        role: "assistant",
+        content: "Welcome! Please upload a PDF document using the workspace panel on the left to start asking questions.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
   };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -50,6 +124,12 @@ export function ChatInterface() {
 
     const trimmed = inputMessage.trim();
     if (!trimmed || isStreaming) return;
+
+    // GUARD: Require PDF upload first before allowing chat
+    if (!activePdf) {
+      setError("Please upload a PDF file first before asking questions. This chatbot answers questions exclusively from your uploaded documents.");
+      return;
+    }
 
     setError(null);
     setInputMessage("");
@@ -77,7 +157,7 @@ export function ChatInterface() {
     setIsStreaming(true);
 
     try {
-      await sendChatMessageStream(trimmed, activePdf?.pdf_id, (chunk: string) => {
+      await sendChatMessageStream(trimmed, activePdf.pdf_id, activeSessionId, (chunk: string) => {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMsgId
@@ -86,15 +166,16 @@ export function ChatInterface() {
           )
         );
       });
+      loadSessions();
     } catch (err: any) {
-      setError(err?.message || "Failed to communicate with FastAPI backend.");
+      setError(err?.message || "Failed to communicate with backend server.");
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMsgId && msg.content === ""
             ? {
                 ...msg,
                 content:
-                  "⚠️ Could not connect to FastAPI server. Please ensure `backend/app.py` is running on port 8000.",
+                  "⚠️ Could not connect to server. Please check your network connection.",
               }
             : msg
         )
@@ -109,7 +190,9 @@ export function ChatInterface() {
       {
         id: "welcome-msg",
         role: "assistant",
-        content: "Chat history cleared. What would you like to discuss next?",
+        content: activePdf
+          ? `Chat display reset for ${activePdf.filename}. What would you like to ask next?`
+          : "Welcome! Please upload a PDF document using the workspace panel on the left to start asking questions.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
@@ -126,41 +209,99 @@ export function ChatInterface() {
           </div>
           <div>
             <h1 className="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-              PDF Chatbot - RAG AI
+              PDF Chatbot
             </h1>
             <div className="flex items-center space-x-2 text-xs text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>FastAPI + FAISS RAG Pipeline (Phase 7: RAG System)</span>
+              <span className={`w-2 h-2 rounded-full ${activePdf ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}></span>
+              <span>{activePdf ? `Document Active: ${activePdf.filename}` : "Awaiting PDF Upload"}</span>
             </div>
           </div>
         </div>
 
-        <button
-          onClick={handleClearChat}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-          title="Clear Conversation"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Reset Chat</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleNewChat}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-md shadow-indigo-600/20"
+            title="Start a New Chat Session"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Chat</span>
+          </button>
+
+          <button
+            onClick={handleClearChat}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            title="Reset Chat Display"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Reset Chat</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Body Grid */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* PDF Uploader Sidebar */}
-        <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-slate-800 p-4 bg-slate-950 shrink-0 space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            <FileText className="w-4 h-4 text-indigo-400" />
-            <span>Document Workspace</span>
+        {/* Sidebar */}
+        <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-slate-800 p-4 bg-slate-950 shrink-0 flex flex-col h-full overflow-hidden space-y-4">
+          <div className="space-y-3 shrink-0">
+            <div className="flex items-center space-x-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <FileText className="w-4 h-4 text-indigo-400" />
+              <span>Document Workspace</span>
+            </div>
+
+            <PdfUploader onPdfUploaded={handlePdfUploaded} activePdf={activePdf} />
           </div>
 
-          <PdfUploader onPdfUploaded={handlePdfUploaded} activePdf={activePdf} />
+          {/* Past Sessions List expanding to bottom of sidebar */}
+          {pastSessions.length > 0 && (
+            <div className="flex-1 flex flex-col min-h-0 pt-3 border-t border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider shrink-0">
+                <span className="flex items-center space-x-1.5">
+                  <History className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Chat History</span>
+                </span>
+                <span className="text-[10px] text-slate-500">{pastSessions.length} sessions</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                {pastSessions.map((s) => (
+                  <div
+                    key={s.session_id}
+                    onClick={() => loadSessionHistory(s)}
+                    className={`p-2.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                      activeSessionId === s.session_id
+                        ? "bg-indigo-950/60 border-indigo-500/50 text-indigo-200"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="truncate pr-2">
+                      <p className="font-medium truncate text-[11px] text-slate-200">
+                        {s.filename}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-1 shrink-0 text-[10px] bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
+                      <Clock className="w-3 h-3 text-slate-500" />
+                      <span>{s.message_count} msgs</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
+          {/* PDF Required Alert Banner when no PDF is attached */}
+          {!activePdf && (
+            <div className="bg-amber-950/40 border-b border-amber-900/50 px-4 py-2.5 flex items-center space-x-2 text-xs text-amber-300">
+              <FileWarning className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Please upload a PDF document in the workspace sidebar before asking questions.</span>
+            </div>
+          )}
+
           {/* Messages Scroll Area */}
-          <main className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
+          <main className="flex-1 overflow-y-auto p-6 space-y-6">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -230,16 +371,16 @@ export function ChatInterface() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 placeholder={
                   activePdf
-                    ? `Ask anything about ${activePdf.filename} (RAG Mode)...`
-                    : "Type a question or message..."
+                    ? `Ask anything about ${activePdf.filename}...`
+                    : "Please upload a PDF document first to start chatting..."
                 }
-                disabled={isStreaming}
+                disabled={isStreaming || !activePdf}
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 transition"
               />
 
               <button
                 type="submit"
-                disabled={!inputMessage.trim() || isStreaming}
+                disabled={!inputMessage.trim() || isStreaming || !activePdf}
                 className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center shrink-0"
               >
                 <Send className="w-4 h-4" />

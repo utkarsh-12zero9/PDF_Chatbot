@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, X, ChevronDown, ChevronUp, Layers, Database } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { UploadCloud, FileText, CheckCircle2, AlertCircle, Loader2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { uploadPdfFile, PdfUploadResult } from "../lib/api";
 
 interface PdfUploaderProps {
@@ -13,8 +13,12 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [showChunks, setShowChunks] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clear upload/OCR warnings automatically whenever activePdf changes or chat session switches
+  useEffect(() => {
+    setError(null);
+  }, [activePdf?.pdf_id, activePdf?.filename]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -37,7 +41,7 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
       const data = await uploadPdfFile(file);
       onPdfUploaded(data);
     } catch (err: any) {
-      setError(err?.message || "Failed to upload, embed, and index PDF.");
+      setError(err?.message || "Failed to process PDF file.");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -74,10 +78,10 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
 
           <div>
             <p className="text-sm font-semibold text-slate-200">
-              {isUploading ? "Generating Vector Embeddings & Indexing..." : "Click or Drag PDF to Upload"}
+              {isUploading ? "Processing Document..." : "Click or Drag PDF to Upload"}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Embeds & indexes vectors in FAISS database
+              Upload a PDF document (up to 15 MB)
             </p>
           </div>
         </div>
@@ -98,21 +102,12 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
                 <div className="flex items-center space-x-2 text-xs text-slate-400 mt-0.5">
                   <span>{activePdf.total_pages} {activePdf.total_pages === 1 ? "page" : "pages"}</span>
                   <span>•</span>
-                  <span className="text-indigo-300 font-medium">{activePdf.total_chunks} chunks</span>
+                  <span className="text-emerald-400 font-medium">Ready</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center space-x-1 shrink-0">
-              <button
-                onClick={() => setShowChunks(!showChunks)}
-                className={`p-1.5 rounded-lg transition ${
-                  showChunks ? "bg-indigo-600/30 text-indigo-300" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                }`}
-                title="View Text Chunks"
-              >
-                <Layers className="w-4 h-4" />
-              </button>
               <button
                 onClick={() => setShowPreview(!showPreview)}
                 className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition"
@@ -130,50 +125,12 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
             </div>
           </div>
 
-          {/* Vector Store Status Badge */}
-          <div className="flex items-center justify-between text-[11px] bg-slate-950 border border-emerald-900/40 px-3 py-1.5 rounded-lg text-slate-400">
-            <span className="flex items-center space-x-1.5">
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Vector Store: <strong className="text-emerald-300 uppercase">{activePdf.vector_db || "FAISS"}</strong></span>
-            </span>
-            <span className="text-slate-300 font-mono text-[10px]">{activePdf.indexed_vectors} vectors indexed</span>
-          </div>
-
-          {/* Chunking Config Badge */}
-          <div className="flex items-center justify-between text-[11px] bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-400">
-            <span>Chunk Size: <strong className="text-slate-200">{activePdf.chunk_size}</strong></span>
-            <span>Overlap: <strong className="text-slate-200">{activePdf.chunk_overlap}</strong></span>
-            <span>Chunks: <strong className="text-indigo-400">{activePdf.total_chunks}</strong></span>
-          </div>
-
-          {showChunks && (
-            <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs space-y-2">
-              <span className="font-semibold text-slate-400 uppercase tracking-wider text-[10px] flex items-center justify-between">
-                <span>FAISS Vector Chunks</span>
-                <span>({activePdf.chunks.length} total)</span>
-              </span>
-              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-                {activePdf.chunks.map((chunk) => (
-                  <div key={chunk.chunk_id} className="bg-slate-900 border border-slate-800 p-2 rounded-lg space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span className="font-semibold text-indigo-400">Chunk #{chunk.chunk_id + 1}</span>
-                      <span>Page {chunk.page} • {chunk.character_count} chars</span>
-                    </div>
-                    <p className="text-slate-300 font-mono text-[11px] line-clamp-3 leading-relaxed">
-                      {chunk.content}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {showPreview && !showChunks && (
+          {showPreview && activePdf.preview_text && (
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs space-y-1.5">
               <span className="font-semibold text-slate-400 uppercase tracking-wider text-[10px]">
-                Full Extracted Text Preview
+                Document Preview
               </span>
-              <p className="text-slate-300 leading-relaxed font-mono whitespace-pre-wrap max-h-36 overflow-y-auto pr-2 scrollbar-thin">
+              <p className="text-slate-300 leading-relaxed font-sans whitespace-pre-wrap max-h-36 overflow-y-auto pr-2 scrollbar-thin">
                 {activePdf.preview_text}
               </p>
             </div>

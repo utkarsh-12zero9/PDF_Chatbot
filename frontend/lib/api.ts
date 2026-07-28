@@ -16,6 +16,7 @@ export interface ChunkInfo {
 
 export interface PdfUploadResult {
   pdf_id: string;
+  session_id?: string;
   filename: string;
   file_path: string;
   total_pages: number;
@@ -34,9 +35,17 @@ export interface PdfUploadResult {
   }>;
 }
 
+export interface ChatSessionInfo {
+  session_id: string;
+  pdf_id: string;
+  filename: string;
+  message_count: number;
+}
+
 export async function sendChatMessageStream(
   message: string,
   pdfId: string | null | undefined,
+  sessionId: string | null | undefined,
   onChunk: (chunk: string) => void
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/chat`, {
@@ -46,7 +55,8 @@ export async function sendChatMessageStream(
     },
     body: JSON.stringify({
       message,
-      pdf_id: pdfId || null
+      pdf_id: pdfId || null,
+      session_id: sessionId || null,
     }),
   });
 
@@ -85,6 +95,24 @@ export async function uploadPdfFile(file: File): Promise<PdfUploadResult> {
     throw new Error(message);
   }
 
+  const json = await response.json();
+  return json.data;
+}
+
+export async function fetchSessionMessages(sessionId: string): Promise<Message[]> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/messages`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch session messages (${response.status})`);
+  }
+  const json = await response.json();
+  return json.data;
+}
+
+export async function fetchUserSessions(): Promise<ChatSessionInfo[]> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch sessions (${response.status})`);
+  }
   const json = await response.json();
   return json.data;
 }
