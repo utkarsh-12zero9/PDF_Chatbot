@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PDF Chatbot RAG",
-  description: "Production RAG PDF Chatbot with Conversational Memory",
+  title: "AI-Powered PDF Chatbot",
+  description: "PDF Chatbot with AI,LLM,vector search and memory and conversational ability",
   icons: {
     icon: "/icon.png",
     shortcut: "/icon.png",
