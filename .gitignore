@@ -27,3 +27,6 @@ frontend/out/
 .idea/
 .DS_Store
 Thumbs.db
+
+# README files
+README.md
