@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, RefreshCw, AlertCircle, FileText, History, Clock, FileWarning, Plus, MessageSquare, Zap, UploadCloud, Loader2, Trash2 } from "lucide-react";
+import { Send, Bot, User, RefreshCw, AlertCircle, FileText, History, Clock, FileWarning, Plus, MessageSquare, Zap, UploadCloud, Loader2, Trash2, Menu, X } from "lucide-react";
 import { sendChatMessageStream, fetchSessionMessages, fetchUserSessions, deleteSession, uploadPdfFile, Message, PdfUploadResult, ChatSessionInfo } from "../lib/api";
 import { PdfUploader } from "./PdfUploader";
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activePdf, setActivePdf] = useState<PdfUploadResult | null>(null);
@@ -305,8 +306,15 @@ export function ChatInterface() {
 
       {/* Floating Glass Header Bar */}
       <header className="glass-panel px-5 py-3 rounded-lg flex items-center justify-between shadow-xl z-20 border border-slate-800 shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="relative">
+        <div className="flex items-center space-x-2 sm:space-x-3 overflow-hidden">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="lg:hidden p-1.5 rounded-md text-slate-300 hover:text-white bg-slate-800/80 border border-slate-700/60 transition-colors shrink-0"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+          
+          <div className="relative shrink-0 hidden sm:block">
             <img
               src="/icon.png"
               alt="PDF Intelligence Logo"
@@ -315,46 +323,73 @@ export function ChatInterface() {
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#64DDC8] border-2 border-[#0B0F17] rounded-full"></span>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center space-x-2">
-              <h1 className="text-sm font-bold tracking-tight text-white">
+              <h1 className="text-sm font-bold tracking-tight text-white truncate">
                 PDF Intelligence
               </h1>
-              <span className="px-2 py-0.5 text-[10px] font-semibold bg-[#05b060]/10 border border-[#05b060]/30 text-[#05b060] rounded-md">
+              <span className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-semibold bg-[#05b060]/10 border border-[#05b060]/30 text-[#05b060] rounded-md shrink-0">
                 RAG Engine
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">
+            <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium truncate">
               {activePdf ? `Active Document: ${activePdf.filename}` : "Upload a PDF document to begin"}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
           <button
             onClick={handleNewChat}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold text-white bg-[#05b060] hover:bg-[#079251] transition-colors duration-200 shadow-md shadow-[#05b060]/20 active:scale-95"
+            className="flex items-center space-x-1.5 px-2 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold text-white bg-[#05b060] hover:bg-[#079251] transition-colors duration-200 shadow-md shadow-[#05b060]/20 active:scale-95"
+            title="New Session"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Session</span>
+            <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden sm:inline">New Session</span>
           </button>
 
           <button
             onClick={handleClearChat}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-colors active:scale-95"
+            className="flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-colors active:scale-95"
+            title="Reset View"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-            <span>Reset View</span>
+            <RefreshCw className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-slate-400" />
+            <span className="hidden sm:inline">Reset View</span>
           </button>
         </div>
       </header>
 
       {/* Bento Grid Body Container */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0 overflow-hidden">
+      <div className="flex-1 relative flex flex-col lg:grid lg:grid-cols-12 gap-3 min-h-0 overflow-hidden">
         
+        {/* Mobile Backdrop Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden rounded-lg"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+
         {/* Left Column: Bento Cards (Workspace + Saved Sessions) */}
-        <div className="lg:col-span-4 flex flex-col space-y-3 min-h-0 overflow-hidden">
+        <div className={`
+          absolute lg:relative z-50 lg:z-auto top-0 left-0 h-full w-[280px] sm:w-[320px] lg:w-auto
+          flex flex-col space-y-3 min-h-0 min-w-0 overflow-hidden bg-[#0B0F17] lg:bg-transparent p-3 lg:p-0
+          transition-transform duration-300 ease-in-out lg:transform-none border-r border-slate-800 lg:border-none rounded-l-lg lg:rounded-none
+          lg:col-span-4 shadow-2xl lg:shadow-none
+          ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        `}>
           
+          {/* Mobile Sidebar Header */}
+          <div className="flex items-center justify-between lg:hidden mb-1 shrink-0 px-1">
+            <span className="text-sm font-bold text-white tracking-tight">Menu</span>
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Bento Card 1: Document Workspace */}
           <div className="glass-panel p-3.5 rounded-lg flex flex-col space-y-2.5 shrink-0 shadow-lg border border-slate-800">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -443,7 +478,7 @@ export function ChatInterface() {
         </div>
 
         {/* Right Column: Bento Card 3 (Conversational Stage) */}
-        <div className="lg:col-span-8 glass-panel rounded-lg flex flex-col min-h-0 overflow-hidden shadow-xl relative border border-slate-800">
+        <div className="lg:col-span-8 min-w-0 glass-panel rounded-lg flex flex-col min-h-0 overflow-hidden shadow-xl relative border border-slate-800">
           
           {/* Top Stage Notice when no PDF active (Vivid Red Warning) */}
           {!activePdf && (
@@ -553,27 +588,28 @@ export function ChatInterface() {
                   className="hidden"
                 />
 
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-md bg-[#05b060]/20 text-[#05b060] border border-[#05b060]/30 flex items-center justify-center group-hover:scale-105 transition">
+                <div className="flex items-center space-x-3 overflow-hidden">
+                  <div className="w-8 h-8 shrink-0 rounded-md bg-[#05b060]/20 text-[#05b060] border border-[#05b060]/30 flex items-center justify-center group-hover:scale-105 transition">
                     {isUploadingFooter ? (
                       <Loader2 className="w-4 h-4 animate-spin text-[#05b060]" />
                     ) : (
                       <UploadCloud className="w-4 h-4" />
                     )}
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-100 group-hover:text-emerald-200 transition">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-100 group-hover:text-emerald-200 transition truncate">
                       {isUploadingFooter ? "Processing Document & Generating Vector Store..." : "Upload a PDF Document to Start Chatting"}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 truncate">
                       Click here or drag a file to attach your PDF to this workspace
                     </p>
                   </div>
                 </div>
 
-                <div className="px-3.5 py-1.5 bg-[#05b060] hover:bg-[#079251] text-white rounded-md text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-[#05b060]/20 transition-colors">
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Attach PDF</span>
+                <div className="px-3.5 py-1.5 shrink-0 bg-[#05b060] hover:bg-[#079251] text-white rounded-md text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-[#05b060]/20 transition-colors">
+                  <UploadCloud className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Attach PDF</span>
+                  <span className="sm:hidden">Upload</span>
                 </div>
               </div>
             ) : (
