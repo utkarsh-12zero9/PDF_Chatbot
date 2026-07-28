@@ -140,7 +140,7 @@ export function ChatInterface() {
         {
           id: `system-pdf-${Date.now()}`,
           role: "assistant",
-          content: `I've successfully analyzed your document "${pdfData.filename}" (${pdfData.total_pages} ${pdfData.total_pages === 1 ? 'page' : 'pages'}). Feel free to ask me anything about it!`,
+          content: `📄 Document Attached!\n\nFile: ${pdfData.filename}\nTotal Pages: ${pdfData.total_pages}\n\nYou can now ask any question about this document.`,
           timestamp,
         },
       ]);
