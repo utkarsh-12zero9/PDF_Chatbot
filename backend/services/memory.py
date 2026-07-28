@@ -1,5 +1,6 @@
 import uuid
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 from sqlalchemy.orm import Session
 from backend.database.models import UserModel, PDFModel, ChatSessionModel, MessageModel
 
@@ -106,6 +107,7 @@ class MemoryService:
     def get_session_messages(self, db: Session, session_id: str) -> List[Dict[str, Any]]:
         """
         Retrieves all messages for a given session formatted for frontend UI rendering.
+        Returns ISO timestamps so client browser converts to accurate local time.
         """
         messages = (
             db.query(MessageModel)
@@ -118,7 +120,7 @@ class MemoryService:
                 "id": msg.id,
                 "role": msg.role,
                 "content": msg.content,
-                "timestamp": msg.timestamp.strftime("%I:%M %p") if msg.timestamp else ""
+                "timestamp": msg.timestamp.isoformat() + "Z" if msg.timestamp else ""
             }
             for msg in messages
         ]
@@ -142,5 +144,17 @@ class MemoryService:
                 "message_count": len(s.messages)
             })
         return result
+
+    def delete_session(self, db: Session, session_id: str) -> bool:
+        """
+        Deletes a chat session and all associated messages from the database.
+        If session does not exist in DB, returns True for clean UI removal.
+        """
+        session_obj = db.query(ChatSessionModel).filter(ChatSessionModel.id == session_id).first()
+        if session_obj:
+            db.query(MessageModel).filter(MessageModel.session_id == session_id).delete()
+            db.delete(session_obj)
+            db.commit()
+        return True
 
 memory_service = MemoryService()

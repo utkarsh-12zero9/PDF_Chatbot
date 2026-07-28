@@ -1,36 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #020617;
+  color-scheme: dark;
+  --background: #0B0F17;
   --foreground: #f8fafc;
+  --color-slate-dark: #0F172A;
+  --color-slate-card: #151D2A;
+  --color-slate-border: #111720;
+  --color-emerald-primary: #05b060;
+  --color-emerald-dark: #079251;
+  --color-mint: #64ddc8;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
+html,
 body {
+  color-scheme: dark;
   background: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
 }
 
-/* Custom sleek dark scrollbar styling */
+/* Universal Modern CSS Scrollbar (Firefox + Chromium standard) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #047857 #070A10;
+}
+
+/* Soothing Dark Obsidian Glassmorphism card utilities */
+.glass-panel {
+  background: rgba(21, 29, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-interactive {
+  background: rgba(21, 29, 42, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel-interactive:hover {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(5, 176, 96, 0.4);
+  box-shadow: 0 10px 25px -8px rgba(5, 176, 96, 0.2);
+}
+
+.glass-input {
+  background: rgba(11, 15, 23, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus-within {
+  border-color: rgba(5, 176, 96, 0.6);
+  box-shadow: 0 0 20px -3px rgba(5, 176, 96, 0.3);
+}
+
+/* Ambient Glow Keyframe Orbs */
+@keyframes ambientGlow {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1) translate(0px, 0px);
+  }
+
+  50% {
+    opacity: 0.55;
+    transform: scale(1.15) translate(20px, -20px);
+  }
+}
+
+.animate-glow-slow {
+  animation: ambientGlow 12s ease-in-out infinite;
+}
+
+.animate-glow-reverse {
+  animation: ambientGlow 16s ease-in-out infinite reverse;
+}
+
+/* Webkit Scrollbar Customization for Chrome, Edge, and Safari - Darker Forest Emerald */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 6px !important;
+  height: 6px !important;
+  background-color: #070A10 !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #070A10 !important;
   border-radius: 9999px;
 }
 
+::-webkit-scrollbar-thumb {
+  background-color: #047857 !important;
+  border-radius: 9999px !important;
+  border: 1px solid #065F46 !important;
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background-color: #05b060 !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: #070A10 !important;
 }

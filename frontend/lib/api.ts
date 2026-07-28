@@ -116,3 +116,12 @@ export async function fetchUserSessions(): Promise<ChatSessionInfo[]> {
   const json = await response.json();
   return json.data;
 }
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to delete session (${response.status})`);
+  }
+}
