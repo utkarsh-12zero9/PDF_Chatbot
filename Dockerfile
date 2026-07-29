@@ -4,6 +4,8 @@ FROM python:3.10-slim
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgomp1 \
+    tesseract-ocr \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

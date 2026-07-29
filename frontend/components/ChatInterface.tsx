@@ -153,8 +153,9 @@ export function ChatInterface() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Please select a valid .pdf file.");
+    const fileNameLower = file.name.toLowerCase();
+    if (!fileNameLower.endsWith(".pdf") && !fileNameLower.endsWith(".txt")) {
+      setError("Please select a valid .pdf or .txt file.");
       return;
     }
 
@@ -333,7 +334,7 @@ export function ChatInterface() {
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium truncate">
-              {activePdf ? `Active Document: ${activePdf.filename}` : "Upload a PDF document to begin"}
+              {activePdf ? `Active Document: ${activePdf.filename}` : "Upload a document to begin"}
             </p>
           </div>
         </div>
@@ -483,8 +484,8 @@ export function ChatInterface() {
           {/* Top Stage Notice when no PDF active (Vivid Red Warning) */}
           {!activePdf && (
             <div className="bg-red-950/40 border-b border-red-900/50 px-4 py-2.5 flex items-center space-x-2.5 text-xs text-red-300 shrink-0">
-              <FileWarning className="w-4 h-4 text-red-400 shrink-0" />
-              <span>Please upload a PDF document using the button below or the sidebar to begin asking questions.</span>
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+              <span>Please upload a document (.pdf or .txt) using the button below or the sidebar to begin asking questions.</span>
             </div>
           )}
 
@@ -584,7 +585,7 @@ export function ChatInterface() {
                   type="file"
                   ref={footerFileInputRef}
                   onChange={handleFooterFileUpload}
-                  accept=".pdf,application/pdf"
+                  accept=".pdf,application/pdf,.txt,text/plain"
                   className="hidden"
                 />
 
@@ -598,17 +599,17 @@ export function ChatInterface() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-slate-100 group-hover:text-emerald-200 transition truncate">
-                      {isUploadingFooter ? "Processing Document & Generating Vector Store..." : "Upload a PDF Document to Start Chatting"}
+                      {isUploadingFooter ? "Processing Document & Generating Vector Store..." : "Upload a Document to Start Chatting"}
                     </p>
                     <p className="text-[11px] text-slate-400 truncate">
-                      Click here or drag a file to attach your PDF to this workspace
+                      Click here or drag a file to attach your document to this workspace
                     </p>
                   </div>
                 </div>
 
                 <div className="px-3.5 py-1.5 shrink-0 bg-[#05b060] hover:bg-[#079251] text-white rounded-md text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-[#05b060]/20 transition-colors">
                   <UploadCloud className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">Attach PDF</span>
+                  <span className="hidden sm:inline">Attach File</span>
                   <span className="sm:hidden">Upload</span>
                 </div>
               </div>

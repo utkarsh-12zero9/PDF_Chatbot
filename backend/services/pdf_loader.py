@@ -4,7 +4,7 @@ import uuid
 from typing import Dict, Any, List
 from fastapi import UploadFile, HTTPException
 from langchain_core.documents import Document
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from backend.services.chunking import chunking_service
 from backend.vector_db.vector_store import vector_store_manager
 
@@ -18,8 +18,9 @@ class PDFLoaderService:
         Validates and saves uploaded PDF to backend storage directory.
         Returns (saved_path, pdf_id).
         """
-        if not file.filename.lower().endswith(".pdf"):
-            raise HTTPException(status_code=400, detail="Only PDF files (.pdf) are supported.")
+        filename_lower = file.filename.lower() if file.filename else ""
+        if not (filename_lower.endswith(".pdf") or filename_lower.endswith(".txt")):
+            raise HTTPException(status_code=400, detail="Only .pdf and .txt files are supported.")
         
         pdf_id = f"pdf_{uuid.uuid4().hex[:10]}"
         safe_filename = f"{pdf_id}_{os.path.basename(file.filename)}"
@@ -44,15 +45,20 @@ class PDFLoaderService:
             raise HTTPException(status_code=404, detail="PDF file not found on server.")
 
         try:
-            # 1. Try PyPDFLoader
-            loader = PyPDFLoader(file_path)
-            documents = loader.load()
+            if file_path.lower().endswith(".txt"):
+                loader = TextLoader(file_path, encoding="utf-8")
+                documents = loader.load()
+                valid_docs = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+            else:
+                # 1. Try PyPDFLoader
+                loader = PyPDFLoader(file_path)
+                documents = loader.load()
 
-            # Check if PyPDFLoader extracted text
-            valid_docs = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
+                # Check if PyPDFLoader extracted text
+                valid_docs = [doc for doc in documents if doc.page_content and doc.page_content.strip()]
 
             # 2. Fallback to pdfplumber if PyPDFLoader yielded no extractable text
-            if not valid_docs:
+            if not valid_docs and not file_path.lower().endswith(".txt"):
                 try:
                     import pdfplumber
                     pdfplumber_docs = []
@@ -71,12 +77,35 @@ class PDFLoaderService:
                         valid_docs = pdfplumber_docs
                 except Exception as ex:
                     print(f"pdfplumber fallback notice: {ex}")
+                    
+            # 3. Fallback to OCR (Tesseract) if still no text
+            if not valid_docs and not file_path.lower().endswith(".txt"):
+                try:
+                    import pytesseract
+                    from pdf2image import convert_from_path
+                    
+                    ocr_docs = []
+                    images = convert_from_path(file_path)
+                    for i, image in enumerate(images):
+                        page_text = pytesseract.image_to_string(image)
+                        if page_text.strip():
+                            ocr_docs.append(
+                                Document(
+                                    page_content=page_text.strip(),
+                                    metadata={"source": file_path, "page": i}
+                                )
+                            )
+                    if ocr_docs:
+                        documents = ocr_docs
+                        valid_docs = ocr_docs
+                except Exception as ex:
+                    print(f"OCR fallback notice: {ex}")
 
             total_pages = len(documents)
             if total_pages == 0 or not valid_docs:
                 raise HTTPException(
                     status_code=400,
-                    detail="The uploaded PDF contains no extractable text. If this is an image/scanned document, an OCR layer is required."
+                    detail="The uploaded document contains no extractable text."
                 )
 
             # Attach metadata

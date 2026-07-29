@@ -12,9 +12,9 @@ async def upload_pdf_endpoint(file: UploadFile = File(...), db: Session = Depend
     if not file:
         raise HTTPException(status_code=400, detail="No file provided.")
     
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a .pdf file.")
-
+    filename_lower = file.filename.lower() if file.filename else ""
+    if not (filename_lower.endswith(".pdf") or filename_lower.endswith(".txt")):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a .pdf or .txt file.")
     # 1. Save file to backend storage
     saved_path, pdf_id = pdf_loader_service.save_pdf(file)
 

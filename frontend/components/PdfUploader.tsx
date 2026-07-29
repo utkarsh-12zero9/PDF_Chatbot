@@ -22,8 +22,9 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Please select a valid .pdf file.");
+    const fileNameLower = file.name.toLowerCase();
+    if (!fileNameLower.endsWith(".pdf") && !fileNameLower.endsWith(".txt")) {
+      setError("Please select a valid .pdf or .txt file.");
       return;
     }
 
@@ -57,7 +58,7 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept=".pdf,application/pdf"
+        accept=".pdf,application/pdf,.txt,text/plain"
         className="hidden"
       />
 
@@ -79,7 +80,7 @@ export function PdfUploader({ onPdfUploaded, activePdf }: PdfUploaderProps) {
 
             <div>
               <p className="text-xs font-semibold text-slate-100 group-hover:text-white transition-colors">
-                {isUploading ? "Processing Document..." : "Drop PDF or Click to Upload"}
+                {isUploading ? "Processing Document..." : "Drop Document or Click to Upload"}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Maximum file size: 15 MB
