@@ -24,21 +24,18 @@ class EmbeddingService:
                 except Exception as e:
                     print(f"Warning: Could not initialize OpenAIEmbeddings ({e}). Falling back to HuggingFace Embeddings.")
 
-        # Default / Fallback: Hugging Face Inference API Embeddings (Zero RAM footprint)
+        # Default / Fallback: Free local Hugging Face all-MiniLM-L6-v2 embeddings
         try:
-            from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+            from langchain_huggingface import HuggingFaceEmbeddings
             model_name = os.getenv("HUGGINGFACE_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-            hf_token = os.getenv("HUGGINGFACEHUB_API_TOKEN", "").strip()
-            
-            if not hf_token:
-                print("Warning: HUGGINGFACEHUB_API_TOKEN is missing. Embeddings may fail or hit strict rate limits.")
-                
-            self.embeddings_instance = HuggingFaceInferenceAPIEmbeddings(
-                api_key=hf_token,
-                model_name=model_name
-            )
+            self.embeddings_instance = HuggingFaceEmbeddings(model_name=model_name)
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize HuggingFace Inference API embeddings: {str(e)}")
+            try:
+                from langchain_community.embeddings import HuggingFaceEmbeddings
+                model_name = os.getenv("HUGGINGFACE_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+                self.embeddings_instance = HuggingFaceEmbeddings(model_name=model_name)
+            except Exception as ex:
+                raise RuntimeError(f"Failed to initialize embedding model: {str(ex)}")
 
     def get_embeddings(self):
         if self.embeddings_instance is None:
