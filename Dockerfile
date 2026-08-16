@@ -1,21 +1,27 @@
-FROM node:20-alpine
+FROM python:3.10-slim
 
+# Install system dependencies required for FAISS and building packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgomp1 \
+    tesseract-ocr \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app
 
-# Copy package manifests first for better layer caching
-COPY backend/package*.json ./backend/
+# Copy backend requirements
+COPY backend/requirements.txt .
 
-# Install backend dependencies
-RUN cd backend && npm install
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the backend source code
-COPY backend ./backend
+# Copy the backend code
+COPY backend/ ./backend/
 
-# Build the TypeScript app
-RUN cd backend && npm run build
-
-# Expose the app port
+# Expose the port (Railway provides the PORT environment variable)
 EXPOSE 8000
 
-# Run the compiled Node.js backend
-CMD ["sh", "-c", "cd /app/backend && npm start"]
+# Run the FastAPI server
+CMD uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-8000}
